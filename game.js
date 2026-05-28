@@ -104,11 +104,6 @@
   function setupGuess() {
     currentQ = pickQuestion();
     savedThisRound = false;
-    const jm = $('join-msg');
-    jm.className = 'consent';
-    jm.textContent = 'Add your email to join the leaderboard & be eligible for prizes — we’ll only use it to contact winners.';
-    const jb = $('join-btn');
-    jb.textContent = 'Join leaderboard'; jb.classList.remove('added'); jb.disabled = false;
     $('round-eyebrow').textContent = currentQ.type === 'date'
       ? 'Round · the inflection' : 'Round · the magnitude';
     $('prompt-text').textContent = currentQ.prompt;
@@ -213,7 +208,14 @@
   const saveEvents = (ev) => { try { localStorage.setItem(EV_KEY, JSON.stringify(ev.slice(-800))); } catch { /* kiosk may block */ } };
   const safe = (s) => String(s == null ? '' : s).replace(/[<>&]/g, '');
   let highlightId = null, highlightEmail = null, shownBucket = null, lbView = 'overall';
-  let activePlayer = null;       // {email, name} once a player has joined; cleared on title/sign-out
+
+  // Identity persists across reloads/returns so a signed-in player is never re-prompted;
+  // the booth resets between people with the "different player" sign-out.
+  const PLAYER_KEY = 'agent_wave_player';
+  const loadPlayer = () => { try { return JSON.parse(localStorage.getItem(PLAYER_KEY)) || null; } catch { return null; } };
+  const savePlayer = (p) => { try { localStorage.setItem(PLAYER_KEY, JSON.stringify(p)); } catch { /* kiosk may block */ } };
+  const clearPlayer = () => { try { localStorage.removeItem(PLAYER_KEY); } catch { /* ignore */ } };
+  let activePlayer = loadPlayer();   // {email, name} when signed in
 
   // ---- durable lead capture (optional + resilient): POST each consented join to
   // config.submitUrl; failures queue locally and retry. The local store stays the backup.
@@ -365,14 +367,12 @@
   }, 1000);
   setInterval(renderLeaderboard, 12000); // keep the shared board fresh as others play
 
-  // Toggle the result-screen form vs the "already joined" chip based on activePlayer.
+  // The result screen always belongs to a signed-in player now — show their chip and
+  // the data explorer (joining is required before any round can be played).
   function renderJoinState() {
-    const has = !!activePlayer;
-    $('join-row').style.display = has ? 'none' : 'flex';
-    $('join-msg').style.display = has ? 'none' : '';
-    $('active-chip').style.display = has ? 'flex' : 'none';
-    $('explore-btn').style.display = has ? '' : 'none';   // data deep-dive unlocks once they've joined
-    $('spark').classList.toggle('explorable', has);
+    $('active-chip').style.display = 'flex';
+    $('explore-btn').style.display = '';
+    $('spark').classList.add('explorable');
   }
   function updateActiveChip() {
     if (!activePlayer) return;
@@ -399,39 +399,41 @@
     console.log(csv); return csv;
   };
 
+  // ---- identity / sign-in. Joining gates play; once signed in we persist it so a
+  // refresh or return keeps the player on. The first played round records their score
+  // automatically (see reveal()); the booth resets via the "different player" sign-out.
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  $('join-btn').addEventListener('click', () => {
-    if (!lastResult || savedThisRound) return;
+  function signIn(email, name) {
+    activePlayer = { email, name };
+    savePlayer(activePlayer);
+    lastServerStanding = null; highlightEmail = email;
+  }
+  function attemptJoin() {
     const email = ($('email-input').value || '').trim().toLowerCase();
     const name = ($('name-input').value || '').trim() || 'Anonymous';
     const msg = $('join-msg');
     if (!EMAIL_RE.test(email)) {
-      msg.textContent = 'Please enter a valid email to join the leaderboard & be eligible for prizes.';
-      msg.className = 'consent err'; return;
+      msg.textContent = 'Please enter a valid email to play & be eligible for prizes.';
+      msg.className = 'consent err'; return false;
     }
-    const events = loadEvents();
-    const entry = { id: Date.now(), email, name, damage: lastResult.damage };
-    events.push(entry); saveEvents(events);
-    submitLead(entry);                 // optional apps-script path (best-effort + queued)
-    highlightEmail = email; highlightId = entry.id; savedThisRound = true;
-    activePlayer = { email, name };    // remembered: subsequent plays auto-add without re-clicking
-    lastServerStanding = null;
-    postScore(entry).then((resp) => {  // shared Postgres board (authoritative)
-      if (resp && resp.ok) lastServerStanding = resp;
-      updateActiveChip(); renderLeaderboard();
-    });
-    renderLeaderboard();
-    renderJoinState();                 // hide form, show the "already joined" chip
-    updateActiveChip();
-    // Confirm submission clearly: flip the button to a locked-in state + show their rank.
-    const rank = overallStandings(events).findIndex((p) => p.email === email) + 1;
-    const btn = $('join-btn');
-    btn.textContent = '✓ Added to leaderboard';
-    btn.classList.add('added'); btn.disabled = true;
-    msg.textContent = `✓ Submitted — you’re #${rank} overall, ${name}. Play again to climb.`;
-    msg.className = 'consent ok';
-    Sound.ding();
-  });
+    signIn(email, name);
+    return true;
+  }
+  // Title reflects whether we already know the player: a join form, or a welcome-back.
+  function renderTitle() {
+    const signedIn = !!activePlayer;
+    $('title-join').classList.toggle('on', !signedIn);
+    $('title-welcome').classList.toggle('on', signedIn);
+    if (signedIn) {
+      const me = overallStandings(loadEvents()).find((p) => p.email === activePlayer.email);
+      $('welcome-status').textContent = me
+        ? `Welcome back, ${activePlayer.name} — ${me.total} pts over ${me.plays} play${me.plays > 1 ? 's' : ''}.`
+        : `Signed in as ${activePlayer.name}.`;
+    } else {
+      const jm = $('join-msg'); jm.className = 'consent';
+      jm.textContent = 'Join with your email to play & be eligible for prizes — we’ll only use it to contact winners.';
+    }
+  }
 
   // ---- share card (branded canvas to photograph or download) ----
   function wrapText(ctx, text, x, y, maxW, lh) {
@@ -547,16 +549,18 @@
   window.addEventListener('resize', () => { if ($('explore-overlay').classList.contains('active')) drawExplore(); });
 
   // ---- wiring ----
-  // Title = a new player (clear identity + form); "play again" keeps the active player.
+  // Joining is required to play; "Start" / "Play again" keep the signed-in player.
+  // "Different player" clears identity and returns to the join gate.
   function signOut() {
-    activePlayer = null; highlightEmail = null; lastServerStanding = null;
+    activePlayer = null; clearPlayer();
+    highlightEmail = null; lastServerStanding = null;
     $('name-input').value = ''; $('email-input').value = '';
-    const jm = $('join-msg'); jm.className = 'consent';
-    jm.textContent = 'Add your email to join the leaderboard & be eligible for prizes — we’ll only use it to contact winners.';
-    const jb = $('join-btn'); jb.textContent = 'Join leaderboard'; jb.classList.remove('added'); jb.disabled = false;
-    renderJoinState(); renderLeaderboard();
+    renderTitle(); renderLeaderboard(); show('title-screen');
   }
-  $('start-btn').addEventListener('click', () => { signOut(); setupGuess(); });
+  $('start-btn').addEventListener('click', () => { if (attemptJoin()) setupGuess(); });
+  $('play-btn').addEventListener('click', setupGuess);
+  $('title-explore-btn').addEventListener('click', openExplore);
+  $('title-signout-btn').addEventListener('click', signOut);
   $('signout-btn').addEventListener('click', signOut);
   $('unleash-btn').addEventListener('click', runWave);
   $('again-btn').addEventListener('click', setupGuess);
@@ -599,6 +603,7 @@
   // ---- init: attract IS the booth's default state — start there so a refresh keeps
   // the loop visible immediately, not after 25s of nothing. Idle timer arms on exit.
   flushPending();
+  renderTitle();        // show the join gate, or "welcome back" if already signed in
   renderLeaderboard();
   enterAttract();
 })();

@@ -17,7 +17,27 @@
       <h1 class="display">AGENT<br>TIDAL WAVE</h1>
       <p class="sub">Guess the number. A wave of agent-written code crashes into the servers —
         and the closer your guess, the harder it hits. Real data, lower bound, no hype.</p>
-      <button id="start-btn">Start</button>
+
+      <!-- Not signed in: joining is the gate to play -->
+      <div id="title-join">
+        <div class="join-row">
+          <input class="name-field" id="name-input" maxlength="24" placeholder="Your name" />
+          <input class="name-field" id="email-input" type="email" maxlength="80" placeholder="you@email.com" />
+        </div>
+        <button id="start-btn">Join &amp; play</button>
+        <p class="consent" id="join-msg">Join with your email to play &amp; be eligible for prizes — we’ll only use it to contact winners.</p>
+      </div>
+
+      <!-- Already signed in: straight to play, plus the data explorer -->
+      <div id="title-welcome">
+        <p class="consent" id="welcome-status">Welcome back</p>
+        <div class="btn-row">
+          <button id="play-btn">Start</button>
+          <button id="title-explore-btn" class="ghost">Explore the data</button>
+        </div>
+        <button class="link-btn" id="title-signout-btn">Sign out (different player)</button>
+      </div>
+
       <div class="lb" data-lb></div>
     </section>
 
@@ -50,12 +70,6 @@
       </div>
       <canvas id="spark" width="760" height="150"></canvas>
       <p class="caveat" id="r-caveat"></p>
-      <div class="join-row" id="join-row">
-        <input class="name-field" id="name-input" maxlength="24" placeholder="Your name" />
-        <input class="name-field" id="email-input" type="email" maxlength="80" placeholder="you@email.com" />
-        <button id="join-btn" class="ghost">Join leaderboard</button>
-      </div>
-      <p class="consent" id="join-msg">Add your email to join the leaderboard &amp; be eligible for prizes — we’ll only use it to contact winners.</p>
       <div class="active-chip" id="active-chip">
         <span id="active-chip-status">✓ On the board</span>
         <button class="link-btn" id="signout-btn">Sign out (different player)</button>
