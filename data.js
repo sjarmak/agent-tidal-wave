@@ -56,33 +56,33 @@ const GAME_DATA = Object.freeze({
     },
     {
       id: 'yoy_mult', type: 'number',
-      prompt: 'April 2026 vs April 2025 — how many TIMES more agent-signed commits?',
+      prompt: 'April 2026 vs April 2025 — how many times more agent-signed commits?',
       answer: 673, min: 5, max: 5000, format: 'x', unit: '×',
       hint: 'From ~17.5K/mo to millions.',
       reveal: '~673× in twelve months.',
     },
     {
       id: 'per_day', type: 'number',
-      prompt: 'On an average DAY in April 2026, how many commits were agent-signed?',
+      prompt: 'On an average day in April 2026, how many commits were agent-signed?',
       answer: 392817, min: 1e4, max: 3e6, format: 'compact',
       reveal: '~393K every single day (11.8M ÷ 30).',
     },
     {
       id: 'share_sep25', type: 'number',
-      prompt: 'By Sept 2025, what SHARE of all public commits were agent-signed?',
+      prompt: 'By Sept 2025, what share of all public commits were agent-signed?',
       answer: 0.567, min: 0.01, max: 10, format: 'pct', unit: '%',
       hint: 'This one is a lower bound — labeled commits only.',
       reveal: '0.57% of ALL public commits — and only the labeled ones.',
     },
     {
       id: 'mom_jump', type: 'number',
-      prompt: 'How many MORE agent-signed commits in April 2026 than in March — the one-month jump?',
+      prompt: 'How many more agent-signed commits did April 2026 have than March 2026?',
       answer: 2992798, min: 1e5, max: 2e7, format: 'compact',
       reveal: '+3.0M in a single month (8.8M → 11.8M).',
     },
     {
       id: 'claude_vs_copilot', type: 'number',
-      prompt: 'In May 2026, Claude-signed commits outnumber Copilot-signed by how many TIMES?',
+      prompt: 'In May 2026, Claude-signed commits outnumber Copilot-signed by how many times?',
       answer: 28, min: 2, max: 300, format: 'x', unit: '×',
       reveal: '~28× — but that’s a labeling quirk, not a usage ratio.',
     },
@@ -155,20 +155,20 @@ const GAME_DATA = Object.freeze({
     // ---- year-over-year multiples (real month ÷ same month a year earlier) ----
     {
       id: 'mar_yoy', type: 'number',
-      prompt: 'March 2026 vs March 2025 — how many TIMES more agent-signed commits?',
+      prompt: 'March 2026 vs March 2025 — how many times more agent-signed commits?',
       answer: 465, min: 10, max: 5000, format: 'x', unit: '×',
       reveal: '~465× in a year (18,902 → 8.8M).',
     },
     {
       id: 'feb_yoy', type: 'number',
-      prompt: 'February 2026 vs February 2025 — how many TIMES more agent-signed commits?',
+      prompt: 'February 2026 vs February 2025 — how many times more agent-signed commits?',
       answer: 2375, min: 50, max: 20000, format: 'x', unit: '×',
       hint: 'A year earlier it had only just crossed 2,000/mo.',
       reveal: '~2,400× in a year (2,272 → 5.4M).',
     },
     {
       id: 'q1_vs_2025', type: 'number',
-      prompt: 'The first 3 months of 2026 produced how many TIMES all of 2025?',
+      prompt: 'Q1 2026 produced about how many times as many agent-signed commits as all of 2025?',
       answer: 3, min: 2, max: 50, format: 'x', unit: '×',
       hint: 'Q1 2026 was ~17.5M; all of 2025 was ~5.6M.',
       reveal: 'About 3× — one quarter of 2026 out-produced the entire prior year.',
@@ -177,19 +177,19 @@ const GAME_DATA = Object.freeze({
     // ---- rate questions (a real month spread across its days/hours/minutes) ----
     {
       id: 'per_day_mar2026', type: 'number',
-      prompt: 'On an average DAY in March 2026, how many commits were agent-signed?',
+      prompt: 'On an average day in March 2026, how many commits were agent-signed?',
       answer: 283604, min: 1e4, max: 3e6, format: 'compact',
       reveal: '~284K every day (8.8M ÷ 31).',
     },
     {
       id: 'per_hour_apr2026', type: 'number',
-      prompt: 'In an average HOUR in April 2026, how many commits were agent-signed?',
+      prompt: 'In an average hour in April 2026, how many commits were agent-signed?',
       answer: 16367, min: 1e3, max: 1e5, format: 'compact',
       reveal: '~16,400 an hour (11.8M ÷ 720).',
     },
     {
       id: 'per_min_apr2026', type: 'number',
-      prompt: 'In an average MINUTE in April 2026, how many commits were agent-signed?',
+      prompt: 'In an average minute in April 2026, how many commits were agent-signed?',
       answer: 273, min: 10, max: 5000, format: 'compact',
       hint: 'April has 43,200 minutes.',
       reveal: '~273 every minute, all month long (11.8M ÷ 43,200).',
@@ -218,13 +218,13 @@ const GAME_DATA = Object.freeze({
     // ---- one-month jumps (absolute month-over-month deltas) ----
     {
       id: 'mar_jump', type: 'number',
-      prompt: 'How many MORE agent-signed commits in March 2026 than February — the one-month jump?',
+      prompt: 'How many more agent-signed commits did March 2026 have than February 2026?',
       answer: 3396231, min: 1e5, max: 3e7, format: 'compact',
       reveal: '+3.4M in a single month (5.4M → 8.8M) — the steepest jump yet.',
     },
     {
       id: 'feb_jump', type: 'number',
-      prompt: 'How many MORE agent-signed commits in February 2026 than January — the one-month jump?',
+      prompt: 'How many more agent-signed commits did February 2026 have than January 2026?',
       answer: 2107047, min: 1e5, max: 3e7, format: 'compact',
       reveal: '+2.1M month over month (3.3M → 5.4M).',
     },
@@ -267,7 +267,7 @@ const GAME_DATA = Object.freeze({
     },
     {
       id: 'biggest_dip', type: 'date',
-      prompt: 'Which month saw the biggest month-over-month DROP in agent-signed commits?',
+      prompt: 'Which month had the biggest drop in agent-signed commits from the month before?',
       months: ['2025-06', '2025-07', '2025-08', '2025-09', '2025-10'],
       answerIndex: 3, // 2025-09 (602K → 554K, the steepest dip in the series)
       reveal: 'September 2025 — the steepest dip in the series (602K → 554K).',

@@ -371,6 +371,8 @@
     $('join-row').style.display = has ? 'none' : 'flex';
     $('join-msg').style.display = has ? 'none' : '';
     $('active-chip').style.display = has ? 'flex' : 'none';
+    $('explore-btn').style.display = has ? '' : 'none';   // data deep-dive unlocks once they've joined
+    $('spark').classList.toggle('explorable', has);
   }
   function updateActiveChip() {
     if (!activePlayer) return;
@@ -476,6 +478,74 @@
   $('share-btn').addEventListener('click', () => { buildShareCard(); $('share-overlay').classList.add('active'); });
   $('share-close').addEventListener('click', () => { $('share-overlay').classList.remove('active'); });
 
+  // ---- interactive data explorer: tap into the real series month by month.
+  // Linear shows the hockey stick; log reveals the early-growth structure.
+  const explore = { mode: 'linear', hi: -1 };
+  function exploreGeom(c) {
+    const W = c.clientWidth, H = c.clientHeight, padL = 64, padR = 16, padT = 18, padB = 26;
+    const stride = (W - padL - padR) / GAME_DATA.series.length;
+    return { W, H, padL, padT, padB, stride, plotH: H - padT - padB };
+  }
+  function drawExplore() {
+    const c = $('explore-canvas'); if (!c.clientWidth) return;
+    const ctx = c.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const { W, H, padL, padT, padB, stride, plotH } = exploreGeom(c);
+    c.width = W * dpr; c.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const s = GAME_DATA.series, max = Math.max(...s.map((d) => d.v)), log = explore.mode === 'log';
+    const lmin = Math.log10(80), lmax = Math.log10(max);
+    const frac = (v) => log ? (Math.log10(v) - lmin) / (lmax - lmin) : v / max;
+    ctx.font = '11px ui-monospace, Menlo, monospace';
+    const ticks = log ? [100, 1e3, 1e4, 1e5, 1e6, 1e7] : [0, max * 0.25, max * 0.5, max * 0.75, max];
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+    ticks.forEach((t) => {
+      if (t > max) return;
+      const y = padT + plotH * (1 - frac(Math.max(t, 1)));
+      ctx.strokeStyle = '#1a1a1f'; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 16, y); ctx.stroke();
+      ctx.fillStyle = '#6e6e6e'; ctx.fillText(compact(t), padL - 8, y);
+    });
+    s.forEach((d, i) => {
+      const bh = Math.max(1, frac(d.v) * plotH), x = padL + i * stride, y = padT + plotH - bh, hi = i === explore.hi;
+      ctx.fillStyle = d.partial ? '#5a2a24' : '#ff5543';
+      ctx.globalAlpha = hi ? 1 : (d.partial ? 0.9 : 0.42 + 0.5 * frac(d.v));
+      ctx.fillRect(x + 1, y, Math.max(1, stride - 3), bh);
+      if (hi) { ctx.globalAlpha = 1; ctx.strokeStyle = '#f5eddd';
+        ctx.strokeRect(x + 0.5, y - 0.5, Math.max(1, stride - 3) + 1, bh + 1); }
+    });
+    ctx.globalAlpha = 1; ctx.fillStyle = '#6e6e6e'; ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left'; ctx.fillText(monthLabel(s[0].m), padL, H - 7);
+    ctx.textAlign = 'right'; ctx.fillText(monthLabel(s[s.length - 1].m), W - 16, H - 7);
+  }
+  function exploreReadout() {
+    const s = GAME_DATA.series, el = $('explore-readout');
+    if (explore.hi < 0 || explore.hi >= s.length) { el.textContent = 'Hover or tap a bar to see that month’s exact count.'; return; }
+    const d = s[explore.hi];
+    el.textContent = `${monthLabel(d.m)} — ${d.v.toLocaleString('en-US')} agent-signed commits${d.partial ? ' (month still in progress)' : ''}`;
+  }
+  function exploreHover(ev) {
+    const c = $('explore-canvas'), r = c.getBoundingClientRect(), { padL, stride } = exploreGeom(c);
+    const i = Math.floor((ev.clientX - r.left - padL) / stride);
+    explore.hi = (i >= 0 && i < GAME_DATA.series.length) ? i : -1;
+    drawExplore(); exploreReadout();
+  }
+  function openExplore() {
+    explore.hi = -1; $('explore-overlay').classList.add('active');
+    requestAnimationFrame(() => { drawExplore(); exploreReadout(); });
+  }
+  $('explore-btn').addEventListener('click', openExplore);
+  $('explore-close').addEventListener('click', () => $('explore-overlay').classList.remove('active'));
+  $('spark').addEventListener('click', () => { if (activePlayer) openExplore(); });
+  $('explore-canvas').addEventListener('pointermove', exploreHover);
+  $('explore-canvas').addEventListener('pointerdown', exploreHover);
+  $('explore-canvas').addEventListener('pointerleave', () => { explore.hi = -1; drawExplore(); exploreReadout(); });
+  document.querySelectorAll('.explore-scale button').forEach((b) =>
+    b.addEventListener('click', () => {
+      explore.mode = b.getAttribute('data-scale');
+      document.querySelectorAll('.explore-scale button').forEach((x) => x.classList.toggle('active', x === b));
+      drawExplore();
+    }));
+  window.addEventListener('resize', () => { if ($('explore-overlay').classList.contains('active')) drawExplore(); });
+
   // ---- wiring ----
   // Title = a new player (clear identity + form); "play again" keeps the active player.
   function signOut() {
@@ -500,10 +570,12 @@
   // ---- attract / idle mode: a continuous flowing wave + TAP TO PLAY pull eyes
   // from across the hall. Always silent (repeated booms would annoy).
   const IDLE_MS = 25000;
-  let idleTimer = null, attractActive = false;
+  let idleTimer = null, attractActive = false, returnScreen = 'title-screen';
+  const currentScreen = () => screens.find((s) => $(s).classList.contains('active')) || 'title-screen';
 
   function enterAttract() {
     if (attractActive) return;
+    returnScreen = currentScreen();   // remember where the player was so we can come back to it
     attractActive = true;
     show('wave-screen');
     $('attract').classList.add('active');
@@ -514,7 +586,7 @@
     attractActive = false;
     WaveScene.stop();
     $('attract').classList.remove('active');
-    show('title-screen');
+    show(returnScreen);   // return to the screen they left, not always the title
   }
   function resetIdle() {
     clearTimeout(idleTimer);

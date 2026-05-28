@@ -61,6 +61,7 @@
         <button class="link-btn" id="signout-btn">Sign out (different player)</button>
       </div>
       <div class="btn-row">
+        <button id="explore-btn" class="ghost">Explore the data</button>
         <button id="share-btn" class="ghost">Share card</button>
         <button id="again-btn">Play again</button>
       </div>
@@ -73,6 +74,27 @@
         <h1 class="display">AGENT<br>TIDAL WAVE</h1>
         <div class="tap">▸ TAP TO PLAY ◂</div>
         <div class="lb" data-lb></div>
+      </div>
+    </div>
+
+    <!-- Data explorer overlay (offered once a player has joined) -->
+    <div id="explore-overlay">
+      <div class="explore-panel">
+        <div class="explore-head">
+          <div>
+            <div class="eyebrow">Explore the data</div>
+            <div class="explore-sub">Agent-signed public commits per month — real data, lower bound.</div>
+          </div>
+          <div class="explore-scale">
+            <button type="button" data-scale="linear" class="active">Linear</button>
+            <button type="button" data-scale="log">Log</button>
+          </div>
+        </div>
+        <canvas id="explore-canvas"></canvas>
+        <div class="explore-readout" id="explore-readout">Hover or tap a bar to see that month’s exact count.</div>
+        <div class="explore-actions">
+          <button id="explore-close" class="ghost">Close</button>
+        </div>
       </div>
     </div>
 
