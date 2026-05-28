@@ -148,6 +148,11 @@
       events.push(entry); saveEvents(events);
       submitLead(entry);
       highlightEmail = activePlayer.email; highlightId = entry.id; savedThisRound = true;
+      lastServerStanding = null;
+      postScore(entry).then((resp) => {  // climb the shared board automatically
+        if (resp && resp.ok) lastServerStanding = resp;
+        updateActiveChip(); renderLeaderboard();
+      });
       Sound.ding();
     }
     show('result-screen');
@@ -241,12 +246,57 @@
     return Object.values(by).sort((a, b) => b.total - a.total);
   }
 
-  function renderLeaderboard() {
+  // --- shared board (Postgres API) with local fallback ---
+  let serverHourResetAt = 0, lastServerStanding = null;
+  const isYouName = (name) => !!activePlayer && activePlayer.name === name;
+  const lbTabs = () => '<div class="lb-tabs">' +
+    `<button data-view="overall" class="${lbView === 'overall' ? 'active' : ''}">Overall</button>` +
+    `<button data-view="hour" class="${lbView === 'hour' ? 'active' : ''}">This hour</button></div>`;
+  const paint = (html) => document.querySelectorAll('[data-lb]').forEach((el) => { el.innerHTML = html; });
+  const fmtReset = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+  async function serverBoard(view) {
+    try {
+      const r = await fetch(`/api/leaderboard?view=${view}`, { cache: 'no-store' });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return Array.isArray(j.rows) ? j : null;
+    } catch { return null; }
+  }
+  async function postScore(entry) {
+    try {
+      const r = await fetch('/api/score', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: entry.email, name: entry.name, damage: entry.damage }),
+      });
+      return r.ok ? await r.json() : null;
+    } catch { return null; }
+  }
+
+  function renderServerBoard(board) {
+    let head, rows;
+    if (board.view === 'hour') {
+      serverHourResetAt = Date.now() + (board.resetIn || 0) * 1000;
+      head = `<div class="lb-head"><span>This hour · ${board.hourLabel || ''}</span><span>best wave</span></div>` +
+        `<div class="lb-prize">${CONFIG.prize} · resets in <span data-countdown>${fmtReset(board.resetIn || 0)}</span></div>`;
+      rows = board.rows.length
+        ? board.rows.map((r, i) => lbRow(i, safe(r.name), r.score + '%', isYouName(r.name))).join('')
+        : lbEmpty('Be the first wave this hour →');
+    } else {
+      serverHourResetAt = 0;
+      head = '<div class="lb-head"><span>Overall · top players</span><span>score</span></div>' +
+        `<div class="lb-prize">${CONFIG.prize} · play more to climb</div>`;
+      rows = board.rows.length
+        ? board.rows.map((r, i) => lbRow(i, `${safe(r.name)} <span class="plays">×${r.plays}</span>`,
+            r.score + ' pts', isYouName(r.name))).join('')
+        : lbEmpty('No players yet — join to start the board →');
+    }
+    paint(lbTabs() + head + rows);
+  }
+
+  function renderLocalBoard() {
     const now = Date.now(); shownBucket = hourBucket(now);
     const events = loadEvents();
-    const tabs = '<div class="lb-tabs">' +
-      `<button data-view="overall" class="${lbView === 'overall' ? 'active' : ''}">Overall</button>` +
-      `<button data-view="hour" class="${lbView === 'hour' ? 'active' : ''}">This hour</button></div>`;
     let head, rows;
     if (lbView === 'hour') {
       const lb = events.filter((e) => hourBucket(e.id) === shownBucket)
@@ -265,7 +315,13 @@
             p.total + ' pts', p.email === highlightEmail)).join('')
         : lbEmpty('No players yet — join to start the board →');
     }
-    document.querySelectorAll('[data-lb]').forEach((el) => { el.innerHTML = tabs + head + rows; });
+    serverHourResetAt = 0;
+    paint(lbTabs() + head + rows);
+  }
+
+  async function renderLeaderboard() {
+    const board = await serverBoard(lbView);
+    if (board) renderServerBoard(board); else renderLocalBoard();
   }
 
   document.addEventListener('click', (ev) => {
@@ -275,9 +331,19 @@
   });
 
   setInterval(() => {
-    document.querySelectorAll('[data-countdown]').forEach((x) => { x.textContent = countdownText(); });
-    if (hourBucket(Date.now()) !== shownBucket) renderLeaderboard(); // hour rolled over -> board resets
+    const spans = document.querySelectorAll('[data-countdown]');
+    if (spans.length) {
+      const txt = serverHourResetAt
+        ? fmtReset(Math.max(0, (serverHourResetAt - Date.now()) / 1000))
+        : countdownText();
+      spans.forEach((x) => { x.textContent = txt; });
+    }
+    const rolled = serverHourResetAt
+      ? Date.now() >= serverHourResetAt
+      : hourBucket(Date.now()) !== shownBucket;
+    if (rolled) renderLeaderboard();
   }, 1000);
+  setInterval(renderLeaderboard, 12000); // keep the shared board fresh as others play
 
   // Toggle the result-screen form vs the "already joined" chip based on activePlayer.
   function renderJoinState() {
@@ -288,12 +354,16 @@
   }
   function updateActiveChip() {
     if (!activePlayer) return;
-    const standings = overallStandings(loadEvents());
-    const me = standings.find((p) => p.email === activePlayer.email);
-    const rank = standings.findIndex((p) => p.email === activePlayer.email) + 1;
+    const status = $('active-chip-status');
     const dmg = lastResult && typeof lastResult.damage === 'number' ? lastResult.damage : null;
     const added = (dmg !== null && savedThisRound) ? `✓ +${dmg}% added · ` : '';
-    const status = $('active-chip-status');
+    if (lastServerStanding && lastServerStanding.rank) { // authoritative shared rank
+      status.textContent = `${added}You’re #${lastServerStanding.rank} overall, ${activePlayer.name} (${lastServerStanding.total} pts)`;
+      return;
+    }
+    const standings = overallStandings(loadEvents());          // offline fallback
+    const me = standings.find((p) => p.email === activePlayer.email);
+    const rank = standings.findIndex((p) => p.email === activePlayer.email) + 1;
     status.textContent = me
       ? `${added}You’re #${rank} overall, ${activePlayer.name} (×${me.plays} plays, ${me.total} pts)`
       : `Playing as ${activePlayer.name}`;
@@ -320,9 +390,14 @@
     const events = loadEvents();
     const entry = { id: Date.now(), email, name, damage: lastResult.damage };
     events.push(entry); saveEvents(events);
-    submitLead(entry);                 // durable backend if configured (best-effort + queued)
+    submitLead(entry);                 // optional apps-script path (best-effort + queued)
     highlightEmail = email; highlightId = entry.id; savedThisRound = true;
     activePlayer = { email, name };    // remembered: subsequent plays auto-add without re-clicking
+    lastServerStanding = null;
+    postScore(entry).then((resp) => {  // shared Postgres board (authoritative)
+      if (resp && resp.ok) lastServerStanding = resp;
+      updateActiveChip(); renderLeaderboard();
+    });
     renderLeaderboard();
     renderJoinState();                 // hide form, show the "already joined" chip
     updateActiveChip();
@@ -384,7 +459,7 @@
   // ---- wiring ----
   // Title = a new player (clear identity + form); "play again" keeps the active player.
   function signOut() {
-    activePlayer = null; highlightEmail = null;
+    activePlayer = null; highlightEmail = null; lastServerStanding = null;
     $('name-input').value = ''; $('email-input').value = '';
     const jm = $('join-msg'); jm.className = 'consent';
     jm.textContent = 'Add your email to join the leaderboard & be eligible for prizes — we’ll only use it to contact winners.';

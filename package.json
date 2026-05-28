@@ -1,0 +1,18 @@
+{
+  "name": "agent-tidal-wave",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AI World's Fair booth game — guess how much code agents write; a shared leaderboard backed by Postgres.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.16.3"
+  }
+}

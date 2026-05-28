@@ -1,17 +1,28 @@
-# Render Blueprint — static site, no build step.
-# Deploy options:
-#   A) Render Dashboard ▸ New ▸ Blueprint ▸ connect this repo (auto-reads this file).
-#   B) Render Dashboard ▸ New ▸ Static Site ▸ Build Command: (leave empty) ▸
-#      Publish Directory: "."
+# Render Blueprint — Node web service (serves the static game + the leaderboard API)
+# plus a managed Postgres for the shared leaderboard. Mirrors the code-intel-digest setup.
+# Deploy: Render Dashboard ▸ New ▸ Blueprint ▸ connect this repo ▸ Apply.
 services:
   - type: web
     name: agent-tidal-wave
-    runtime: static
-    buildCommand: ""
-    staticPublishPath: .
-    pullRequestPreviewsEnabled: false
-    headers:
-      # The game is tweaked often; don't let a stale index/JS get cached at the booth.
-      - path: /*
-        name: Cache-Control
-        value: "public, max-age=0, must-revalidate"
+    runtime: node
+    region: oregon
+    branch: main
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: EVENT_TZ
+        value: America/Los_Angeles   # hourly-board timezone (edit to your event's TZ)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agent-tidal-wave-db
+          property: connectionString
+
+databases:
+  - name: agent-tidal-wave-db
+    region: oregon
+    plan: free
+    postgresMajorVersion: 16
