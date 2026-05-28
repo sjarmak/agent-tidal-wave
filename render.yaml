@@ -1,0 +1,17 @@
+# Render Blueprint — static site, no build step.
+# Deploy options:
+#   A) Render Dashboard ▸ New ▸ Blueprint ▸ connect this repo (auto-reads this file).
+#   B) Render Dashboard ▸ New ▸ Static Site ▸ Build Command: (leave empty) ▸
+#      Publish Directory: "."
+services:
+  - type: web
+    name: agent-tidal-wave
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
+    pullRequestPreviewsEnabled: false
+    headers:
+      # The game is tweaked often; don't let a stale index/JS get cached at the booth.
+      - path: /*
+        name: Cache-Control
+        value: "public, max-age=0, must-revalidate"
