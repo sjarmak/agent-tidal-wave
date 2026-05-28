@@ -2,7 +2,7 @@
 
 A booth game for the AI World's Fair. Guess how much code AI agents are writing on
 GitHub — a wave of agent-written code crashes into the servers, and the closer your
-guess, the harder it hits. Real data, lower bound, no hype.
+guess, the harder it hits.
 
 A tiny Node/Express service serves the static game **and** a shared-leaderboard API
 backed by Postgres (same origin, no CORS). Sourcegraph GTM brand: black, PolySans,

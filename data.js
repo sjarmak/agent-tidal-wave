@@ -26,7 +26,7 @@ const GAME_DATA = Object.freeze({
 
   // Booth-editable: prize copy for the hourly board + the URL printed on share cards.
   config: Object.freeze({
-    prize: 'Top wave each hour wins swag 🌊',  // ← edit for your actual prize
+    prize: 'Top wave each hour wins a prize 🌊',  // ← edit for your actual prize
     playUrl: 'sourcegraph.com/tidalwave',       // ← edit to your real landing URL
     // Optional durable lead capture: paste a POST endpoint (e.g. the Google Apps Script
     // web-app /exec URL from apps-script.gs). Empty = local-only (localStorage + CSV export).

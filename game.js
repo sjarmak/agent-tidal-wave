@@ -579,7 +579,8 @@
 
   function enterAttract() {
     if (attractActive) return;
-    returnScreen = currentScreen();   // remember where the player was so we can come back to it
+    if (currentScreen() !== 'title-screen') return;   // only draw from the title; never interrupt an active player
+    returnScreen = currentScreen();
     attractActive = true;
     show('wave-screen');
     $('attract').classList.add('active');
