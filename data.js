@@ -99,5 +99,178 @@ const GAME_DATA = Object.freeze({
       answerIndex: 5, // 2025-11 (Oct was 981K, Nov was 1.14M)
       reveal: 'November 2025 — Oct fell just short at 981K.',
     },
+
+    // ---- more magnitudes (each value is a real month in `series`) ----
+    {
+      id: 'mag_jul2025', type: 'number',
+      prompt: 'In July 2025, how many public commits were AI-agent co-authored?',
+      answer: 473704, min: 1e4, max: 1e7, format: 'compact',
+      reveal: 'July 2025 — climbing through the steepest part of the ramp.',
+    },
+    {
+      id: 'mag_aug2025', type: 'number',
+      prompt: 'In August 2025, how many public commits were AI-agent co-authored?',
+      answer: 602150, min: 1e4, max: 1e7, format: 'compact',
+      reveal: 'August 2025 — the series’ one clear dip came right after.',
+    },
+    {
+      id: 'mag_sep2025', type: 'number',
+      prompt: 'In September 2025, how many public commits were AI-agent co-authored?',
+      answer: 554047, min: 1e4, max: 1e7, format: 'compact',
+      hint: 'This is the only month that came in BELOW the one before it.',
+      reveal: 'September 2025 — dipped from August (602K → 554K) before resuming the climb.',
+    },
+    {
+      id: 'mag_oct2025', type: 'number',
+      prompt: 'In October 2025, how many public commits were AI-agent co-authored?',
+      answer: 981238, min: 1e4, max: 1e7, format: 'compact',
+      hint: 'Just shy of a round milestone.',
+      reveal: 'October 2025 — 981K, a whisker under the first million.',
+    },
+    {
+      id: 'mag_mar2025', type: 'number',
+      prompt: 'In March 2025, how many public commits were AI-agent co-authored?',
+      answer: 18902, min: 1e3, max: 1e6, format: 'compact',
+      reveal: 'March 2025 — the count first cleared 10,000 a month.',
+    },
+    {
+      id: 'mag_jan2026', type: 'number',
+      prompt: 'In January 2026, how many public commits were AI-agent co-authored?',
+      answer: 3288443, min: 1e5, max: 3e7, format: 'compact',
+      reveal: 'January 2026 — more than double December.',
+    },
+    {
+      id: 'mag_feb2026', type: 'number',
+      prompt: 'In February 2026, how many public commits were AI-agent co-authored?',
+      answer: 5395490, min: 1e5, max: 3e7, format: 'compact',
+      reveal: 'February 2026 — first month past 5,000,000.',
+    },
+    {
+      id: 'mag_mar2026', type: 'number',
+      prompt: 'In March 2026, how many public commits were AI-agent co-authored?',
+      answer: 8791721, min: 1e5, max: 5e7, format: 'compact',
+      reveal: 'March 2026 — the biggest one-month jump in the series (+3.4M).',
+    },
+
+    // ---- year-over-year multiples (real month ÷ same month a year earlier) ----
+    {
+      id: 'mar_yoy', type: 'number',
+      prompt: 'March 2026 vs March 2025 — how many TIMES more agent-signed commits?',
+      answer: 465, min: 10, max: 5000, format: 'x', unit: '×',
+      reveal: '~465× in a year (18,902 → 8.8M).',
+    },
+    {
+      id: 'feb_yoy', type: 'number',
+      prompt: 'February 2026 vs February 2025 — how many TIMES more agent-signed commits?',
+      answer: 2375, min: 50, max: 20000, format: 'x', unit: '×',
+      hint: 'A year earlier it had only just crossed 2,000/mo.',
+      reveal: '~2,400× in a year (2,272 → 5.4M).',
+    },
+    {
+      id: 'q1_vs_2025', type: 'number',
+      prompt: 'The first 3 months of 2026 produced how many TIMES all of 2025?',
+      answer: 3, min: 2, max: 50, format: 'x', unit: '×',
+      hint: 'Q1 2026 was ~17.5M; all of 2025 was ~5.6M.',
+      reveal: 'About 3× — one quarter of 2026 out-produced the entire prior year.',
+    },
+
+    // ---- rate questions (a real month spread across its days/hours/minutes) ----
+    {
+      id: 'per_day_mar2026', type: 'number',
+      prompt: 'On an average DAY in March 2026, how many commits were agent-signed?',
+      answer: 283604, min: 1e4, max: 3e6, format: 'compact',
+      reveal: '~284K every day (8.8M ÷ 31).',
+    },
+    {
+      id: 'per_hour_apr2026', type: 'number',
+      prompt: 'In an average HOUR in April 2026, how many commits were agent-signed?',
+      answer: 16367, min: 1e3, max: 1e5, format: 'compact',
+      reveal: '~16,400 an hour (11.8M ÷ 720).',
+    },
+    {
+      id: 'per_min_apr2026', type: 'number',
+      prompt: 'In an average MINUTE in April 2026, how many commits were agent-signed?',
+      answer: 273, min: 10, max: 5000, format: 'compact',
+      hint: 'April has 43,200 minutes.',
+      reveal: '~273 every minute, all month long (11.8M ÷ 43,200).',
+    },
+
+    // ---- cumulative totals (sums of real months) ----
+    {
+      id: 'total_alltime', type: 'number',
+      prompt: 'Across the whole series (Sep 2024 → Apr 2026), how many agent-signed commits in total?',
+      answer: 34892197, min: 1e6, max: 5e8, format: 'compact',
+      reveal: '~34.9M total through April 2026.',
+    },
+    {
+      id: 'total_2025', type: 'number',
+      prompt: 'In all of 2025, how many public commits were agent-signed?',
+      answer: 5631676, min: 1e5, max: 1e8, format: 'compact',
+      reveal: '~5.6M across the whole of 2025.',
+    },
+    {
+      id: 'total_q1_2026', type: 'number',
+      prompt: 'In Q1 2026 (Jan–Mar), how many public commits were agent-signed?',
+      answer: 17475654, min: 1e6, max: 5e8, format: 'compact',
+      reveal: '~17.5M in one quarter — 3× all of 2025.',
+    },
+
+    // ---- one-month jumps (absolute month-over-month deltas) ----
+    {
+      id: 'mar_jump', type: 'number',
+      prompt: 'How many MORE agent-signed commits in March 2026 than February — the one-month jump?',
+      answer: 3396231, min: 1e5, max: 3e7, format: 'compact',
+      reveal: '+3.4M in a single month (5.4M → 8.8M) — the steepest jump yet.',
+    },
+    {
+      id: 'feb_jump', type: 'number',
+      prompt: 'How many MORE agent-signed commits in February 2026 than January — the one-month jump?',
+      answer: 2107047, min: 1e5, max: 3e7, format: 'compact',
+      reveal: '+2.1M month over month (3.3M → 5.4M).',
+    },
+
+    // ---- more inflection points (which month first crossed a threshold) ----
+    {
+      id: 'first_10k', type: 'date',
+      prompt: 'Which month did agent-signed commits first top 10,000 per month?',
+      months: ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05'],
+      answerIndex: 2, // 2025-03 (Feb was 2,272; Mar was 18,902)
+      reveal: 'March 2025 — February was just 2,272.',
+    },
+    {
+      id: 'first_100k', type: 'date',
+      prompt: 'Which month did agent-signed commits first top 100,000 per month?',
+      months: ['2025-04', '2025-05', '2025-06', '2025-07', '2025-08'],
+      answerIndex: 2, // 2025-06 (May was 41,882; Jun was 261,516)
+      reveal: 'June 2025 — May was 41,882.',
+    },
+    {
+      id: 'first_500k', type: 'date',
+      prompt: 'Which month did agent-signed commits first top 500,000 per month?',
+      months: ['2025-05', '2025-06', '2025-07', '2025-08', '2025-09'],
+      answerIndex: 3, // 2025-08 (Jul was 473,704; Aug was 602,150)
+      reveal: 'August 2025 — July fell just short at 473,704.',
+    },
+    {
+      id: 'first_5m', type: 'date',
+      prompt: 'Which month did agent-signed commits first top 5,000,000 per month?',
+      months: ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03'],
+      answerIndex: 3, // 2026-02 (Jan was 3.29M; Feb was 5.4M)
+      reveal: 'February 2026 — January was 3.29M.',
+    },
+    {
+      id: 'first_10m', type: 'date',
+      prompt: 'Which month did agent-signed commits first top 10,000,000 per month?',
+      months: ['2025-12', '2026-01', '2026-02', '2026-03', '2026-04'],
+      answerIndex: 4, // 2026-04 (Mar was 8.79M; Apr was 11.78M)
+      reveal: 'April 2026 — March came close at 8.79M.',
+    },
+    {
+      id: 'biggest_dip', type: 'date',
+      prompt: 'Which month saw the biggest month-over-month DROP in agent-signed commits?',
+      months: ['2025-06', '2025-07', '2025-08', '2025-09', '2025-10'],
+      answerIndex: 3, // 2025-09 (602K → 554K, the steepest dip in the series)
+      reveal: 'September 2025 — the steepest dip in the series (602K → 554K).',
+    },
   ]),
 });

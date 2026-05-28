@@ -49,9 +49,29 @@
   let currentQ = null, lastQid = null, lastResult = null, savedThisRound = false;
   const slider = $('guess-slider');
 
+  // ---- question rotation: a shuffled bag (deck). We deal the whole bank before any
+  // repeat, then reshuffle — so a player cycles through EVERY question once per pass.
+  // On reshuffle we keep the freshly-dealt question off the top so the bag boundary
+  // never produces back-to-back duplicates.
+  let bag = [];
+  function shuffled(arr) {
+    const a = arr.slice();                       // copy — never mutate the frozen bank
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function refillBag() {
+    const next = shuffled(GAME_DATA.questions);
+    if (next.length > 1 && lastQid !== null && next[0].id === lastQid) {
+      [next[0], next[1]] = [next[1], next[0]];   // avoid a boundary repeat
+    }
+    bag = next;
+  }
   function pickQuestion() {
-    const pool = GAME_DATA.questions.filter((q) => q.id !== lastQid);
-    const q = pool[Math.floor(Math.random() * pool.length)];
+    if (bag.length === 0) refillBag();
+    const q = bag.shift();
     lastQid = q.id;
     return q;
   }
