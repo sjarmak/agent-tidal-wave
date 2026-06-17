@@ -1,0 +1,173 @@
+// Agent Tidal Wave — an AI World's Fair booth game.
+//
+// Players guess how much agent-written code is on GitHub; a tidal wave of code
+// crashes into a server rack, harder the closer the guess. The whole game is a
+// vanilla-JS canvas client (no build step) served by a tiny Express service that
+// also exposes a Postgres-backed shared leaderboard on the same origin (no CORS).
+//
+// Two delivery realities, both #built: the static client always works (falls
+// back to per-browser localStorage), and the leaderboard API is live only when a
+// database is configured. An optional Google Apps Script gives durable, operator-
+// owned lead capture. Elements `link` to their source file so any box in the
+// explorer is one click from the code.
+
+model {
+
+  player = actor 'Booth player' {
+    description 'Conference attendee who joins with an email, then guesses the magnitude of agent-written code'
+  }
+  operator = actor 'Booth operator' {
+    description 'Runs the booth; exports leads for prizes and configures prize copy / endpoints'
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // External systems — the browser sandbox the client lives in, plus the
+  // optional operator-owned Google Sheet lead sink. Nothing else is contacted.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  browser = externalSystem 'Player browser' {
+    description 'Loads the static game; provides Canvas, Web Audio, fetch, and localStorage (the offline fallback store + lead queue)'
+  }
+
+  sheet = externalSystem 'Google Apps Script lead sink' {
+    description 'Optional operator-deployed Web App that appends each consented play to a Google Sheet — durable lead capture independent of the leaderboard DB'
+    link ../apps-script.gs 'apps-script.gs'
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // The Agent Tidal Wave system.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  atw = system 'Agent Tidal Wave' {
+    description 'Booth game: guess agent-code magnitude, watch a proportional wave crash, and climb a shared leaderboard'
+    link ../README.md 'README'
+
+    // ── The browser game (static client, no build step) ─────────────────────
+    client = container 'Game client' {
+      description 'Static HTML/CSS/JS served as-is; runs entirely in the browser, degrades to localStorage with no server'
+      technology 'Vanilla JS / Canvas / Web Audio'
+      link ../index.html 'index.html'
+
+      shell = component 'index.html — screens + DOM' {
+        #built
+        description 'Title/join, guess, wave, result screens + attract, explorer, and share-card overlays; loads the four scripts'
+        link ../index.html 'index.html'
+      }
+
+      game = component 'game.js — flow & orchestration' {
+        #built
+        description 'Drives title → guess → wave → reveal, question rotation (shuffled bag), identity/sign-in gate, leaderboard render, share card, data explorer, and attract/idle mode'
+        link ../game.js 'game.js'
+      }
+
+      scoring = component 'scoring.js — damage model' {
+        #built
+        description 'Pure proximity scoring: log-ratio closeness for magnitudes (100 = exact), 20-pts-per-month for date rounds, plus damage tiers'
+        link ../scoring.js 'scoring.js'
+      }
+
+      wave = component 'wave.js — wave animation' {
+        #built
+        description 'Canvas WaveScene: crest, code-token spray, screen shake and destroyed-server count all scale with damage; perfect hit launches the rack. Plus the ambient attract loop'
+        link ../wave.js 'wave.js'
+      }
+
+      sound = component 'sound.js — synthesized audio' {
+        #built
+        description 'Web Audio effects (wave whoosh, impact boom, ding, fanfare) with no asset files; no-op when muted or unavailable'
+        link ../sound.js 'sound.js'
+      }
+
+      data = component 'data.js — real data + config' {
+        #evolving
+        description 'Frozen GAME_DATA: monthly agent-signed-commit series, the rotating question bank, and booth config (prize, playUrl, submitUrl). Content/series refreshed per event'
+        link ../data.js 'data.js'
+      }
+
+      localBoard = datastore 'localStorage — events / player / lead queue' {
+        #built
+        description 'Per-device store: play events (the offline leaderboard source), signed-in identity, and the retry queue for failed lead POSTs'
+        link ../game.js 'game.js — loadEvents / loadPlayer / loadPending'
+      }
+    }
+
+    // ── The server (static host + leaderboard API) ──────────────────────────
+    server = container 'Express service' {
+      description 'server.js — serves the static game AND the shared-leaderboard API on one origin (no CORS); API routes declared before the static handler so /api/* wins'
+      technology 'Node 20 / Express 4 / pg'
+      link ../server.js 'server.js'
+
+      staticHost = component 'static file host' {
+        #built
+        description 'express.static(__dirname) ships index.html and the JS/CSS as-is — no bundler, no transform'
+        link ../server.js 'server.js — app.use(express.static)'
+      }
+
+      health = component 'GET /api/health' {
+        #built
+        description 'Liveness + DB ping for the Render health check; reports db ok / unconfigured / unhealthy'
+        link ../server.js 'server.js — /api/health'
+      }
+
+      scoreApi = component 'POST /api/score' {
+        #built
+        #risk
+        description 'Validates {email,name,damage}, inserts one play, returns the player overall rank/total. RISK: open write endpoint — email regex + damage 0–100 are the only guards; no auth or rate limit, so the board is trust-based (acceptable for a staffed booth)'
+        link ../server.js 'server.js — /api/score'
+      }
+
+      boardApi = component 'GET /api/leaderboard' {
+        #built
+        description 'Standings as name + score only (?view=overall|hour); hour view buckets by date_trunc and returns a reset countdown. Email is never returned'
+        link ../server.js 'server.js — /api/leaderboard'
+      }
+
+      schema = component 'pg Pool + ensureSchema' {
+        #built
+        #risk
+        description 'Creates the scores table + indexes on boot; SSL on Render/prod. RISK: with no DATABASE_URL the pool is null and the API answers 503 by design — the client then silently uses its local board, so a misconfigured deploy looks "fine" at the booth'
+        link ../server.js 'server.js — Pool / ensureSchema'
+      }
+
+      scores = datastore 'Postgres — scores table' {
+        #built
+        description 'Append-only plays (id, email, name, damage 0–100, created_at). Email stored server-side, never exposed; rank/standings derived at query time'
+        link ../server.js 'server.js — CREATE TABLE scores'
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Relationships.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // The player and the browser the client runs in.
+  player -> atw.client.shell 'joins, guesses, plays'
+  atw.client -> browser 'runs in (Canvas / Web Audio / fetch / localStorage)'
+
+  // Client-internal wiring (game.js is the orchestrator).
+  atw.client.game -> atw.client.scoring 'evaluate(guess, real) → damage + tier'
+  atw.client.game -> atw.client.wave 'play(damage) — crash scaled to proximity'
+  atw.client.game -> atw.client.sound 'wave / impact / ding / fanfare cues'
+  atw.client.game -> atw.client.data 'reads series, question bank, booth config'
+  atw.client.game -> atw.client.localBoard 'reads/writes events, identity, lead queue'
+
+  // Client → server API (same origin).
+  atw.client.game -> atw.server.boardApi 'GET standings every ~12s; local board on failure'
+  atw.client.game -> atw.server.scoreApi 'POST {email,name,damage} per play → rank/total'
+
+  // Optional durable lead capture (only when config.submitUrl is set).
+  atw.client.game -> sheet 'POST lead (text/plain, no-cors, queue+retry on failure)' {
+    #planned
+  }
+
+  // Server internals.
+  atw.server.scoreApi -> atw.server.scores 'INSERT play, then RANK() for overall standing'
+  atw.server.boardApi -> atw.server.scores 'aggregate top-8 (overall / current hour)'
+  atw.server.health -> atw.server.scores 'SELECT 1 ping'
+  atw.server.schema -> atw.server.scores 'CREATE TABLE + indexes on boot'
+
+  // Operator surfaces.
+  operator -> atw.client.game 'awExport() — local CSV of leads/scores'
+  operator -> sheet 'deploys the Apps Script; reads the Sheet for prizes'
+}

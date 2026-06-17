@@ -1,0 +1,74 @@
+// Element kinds, tags, and custom colors for the Agent Tidal Wave model.
+//
+// Tags encode delivery state so operational risks and any future work are
+// visually distinct from what is already built and exercised:
+//   #built     — code path exists in this repo and runs
+//   #evolving  — built, but the contract/content is expected to move (data, copy)
+//   #planned   — designed/wired but only active under operator configuration
+//   #research  — speculative; (none in this repo — kept for legend parity)
+//
+// Agent Tidal Wave is a single small conference-booth game: a vanilla-JS canvas
+// client served by a tiny Express service that also exposes a Postgres-backed
+// shared leaderboard. Modeling stays at system → container → component; there is
+// no hidden structure to invent.
+
+specification {
+
+  element actor {
+    style {
+      shape person
+      color secondary
+    }
+  }
+
+  element externalSystem {
+    style {
+      shape rectangle
+      color slate
+    }
+  }
+
+  element system
+
+  element container {
+    style {
+      shape rectangle
+    }
+  }
+
+  element component
+
+  element datastore {
+    style {
+      shape cylinder
+    }
+  }
+
+  // Deployment model — where each piece runs at review time.
+  deploymentNode host {
+    style {
+      shape rectangle
+      color slate
+    }
+  }
+  deploymentNode proc
+
+  tag built {
+    color #16a34a
+  }
+  tag evolving {
+    color #d97706
+  }
+  tag planned {
+    color #64748b
+  }
+  tag research {
+    color #6366f1
+  }
+
+  // Cross-cutting: carried by any element that is a known risk / open question
+  // for the review (in addition to its delivery-state tag).
+  tag risk {
+    color #dc2626
+  }
+}

@@ -1,0 +1,101 @@
+// Views over the Agent Tidal Wave model. The optional lead-capture path is the
+// only #planned (config-gated) relationship; it renders dashed/dimmed so the
+// "always-on" core is readable at a glance against the "only when configured"
+// edge.
+
+views {
+
+  // Landscape — the whole game in context (player, browser, optional Sheet).
+  view index {
+    title 'Agent Tidal Wave — system landscape'
+    include *
+
+    style * {
+      opacity 25%
+    }
+    style element.tag == #built, element.tag == #evolving {
+      opacity 100%
+    }
+    style element.tag == #planned {
+      color muted
+      border dashed
+    }
+    style element.tag == #research {
+      color indigo
+      border dashed
+    }
+  }
+
+  // The system decomposed into its two containers.
+  view atwSystem of atw {
+    title 'Agent Tidal Wave — containers (client + server)'
+    include *
+
+    style element.tag == #planned {
+      color muted
+      border dashed
+    }
+  }
+
+  // The browser game internals.
+  view clientContainer of atw.client {
+    title 'Game client (static, in-browser) — components'
+    include *
+  }
+
+  // The Express service internals.
+  view serverContainer of atw.server {
+    title 'Express service — static host + leaderboard API'
+    include *
+  }
+
+  // Risks & open questions — the elements carrying a #risk flag, with the open
+  // question stated in each box's description: things a reviewer should probe.
+  view risks {
+    title 'Risks & open questions'
+    include
+      atw,
+      element.tag == #risk,
+      atw.server
+
+    style * {
+      opacity 30%
+    }
+    style element.tag == #risk {
+      opacity 100%
+      color red
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Walkthrough flows (dynamic views) — the narrative spine of the review.
+  // ───────────────────────────────────────────────────────────────────────
+
+  // Flow 1 — one play, join → guess → wave → reveal → shared board.
+  dynamic view playRound {
+    title 'Walkthrough — one play, end to end'
+    description 'Joining with a valid email gates the first play; afterwards each round auto-records, so a returning player just climbs. The shared board is authoritative when reachable; on any fetch failure the client silently falls back to its local board.'
+
+    player -> atw.client.game 'join (email) + set slider, Unleash'
+    atw.client.game -> atw.client.data 'pick rotating question (shuffled bag)'
+    atw.client.game -> atw.client.scoring 'evaluate(guess, real) → damage + tier'
+    atw.client.game -> atw.client.wave 'play(damage): crash scaled to proximity'
+    atw.client.game -> atw.client.sound 'wave whoosh → impact → fanfare on perfect hit'
+    atw.client.game -> atw.client.localBoard 'append event (local board source of truth)'
+    atw.client.game -> atw.server.scoreApi 'POST {email,name,damage}'
+    atw.server.scoreApi -> atw.server.scores 'INSERT, then RANK() overall'
+    atw.server.scoreApi -> atw.client.game 'rank + total → confirmation chip'
+    atw.client.game -> atw.server.boardApi 'GET standings (name + score)'
+  }
+
+  // Flow 2 — optional durable lead capture with offline resilience.
+  dynamic view leadCapture {
+    title 'Walkthrough — durable lead capture (optional)'
+    description 'CONFIG-GATED. Active only when data.js config.submitUrl points at the deployed Apps Script. Sent as text/plain + no-cors (a simple request, no preflight); the opaque response is never read, so a real send is never falsely retried. Flaky-wifi failures queue locally and flush on the next load. The local CSV via awExport() is always the backstop.'
+
+    atw.client.game -> sheet 'POST lead {email,name,damage,ts} (no-cors)'
+    atw.client.game -> atw.client.localBoard 'queue on failure; flush pending next load'
+    operator -> atw.client.game 'awExport() → local CSV'
+    operator -> sheet 'read the Sheet for prize fulfillment'
+  }
+}

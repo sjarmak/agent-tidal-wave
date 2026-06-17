@@ -1,0 +1,48 @@
+// Deployment model — where each piece runs at review time.
+//
+// One Render free web service runs the Express process, which both serves the
+// static client to the player's browser and talks to a Render-managed Postgres.
+// The optional lead sink is a separate Google Apps Script Web App on Google's
+// infrastructure, owned by the operator. render.yaml is the Blueprint that
+// provisions the web service + database.
+
+deployment {
+
+  render = host 'Render (free tier)' {
+    description 'Blueprint from render.yaml: a Node web service + a managed Postgres, same region (oregon). Health-checked at /api/health'
+    link ../render.yaml 'render.yaml'
+
+    webProc = proc 'Node web service — Express (server.js)' {
+      description 'npm install / npm start; serves the static game and the leaderboard API. RISK: free tier cold-starts after idle — first booth hit can be slow'
+      instanceOf atw.server
+    }
+    db = proc 'Managed Postgres 16 — scores' {
+      description 'DATABASE_URL wired from the managed DB. RISK: free Postgres is deleted after 30 days — fine for a conference, bump to paid for longer'
+      instanceOf atw.server.scores
+    }
+  }
+
+  clientHost = host 'Player browser' {
+    description 'Loads the static client over HTTPS from the web service; runs the canvas game and holds the localStorage fallback board'
+    instanceOf atw.client
+    instanceOf browser
+  }
+
+  googleHost = host 'Google Apps Script (operator account)' {
+    description 'Optional Web App deployed under the operator account; appends consented plays to a Google Sheet'
+    instanceOf sheet
+  }
+
+  // Runtime data & control flow between hosts/processes.
+  clientHost -> webProc 'GET static game + /api/leaderboard, POST /api/score'
+  webProc -> db 'INSERT plays + aggregate standings'
+  clientHost -> googleHost 'POST lead (no-cors) when submitUrl configured'
+}
+
+views {
+
+  deployment view deployment {
+    title 'Deployment — where each piece runs'
+    include *
+  }
+}
