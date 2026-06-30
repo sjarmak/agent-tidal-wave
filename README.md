@@ -61,7 +61,8 @@ Postgres is deleted after 30 days — fine for a conference; bump to paid for lo
 - **Damage = proximity** — log-scale closeness; a perfect hit launches the servers.
 - **Leaderboards** — *This hour* (resets each clock hour, countdown + prize) and *Overall*
   (cumulative; replay to climb), shared across all players via Postgres.
-- **Join once** with an email; later plays auto-add — no re-clicking.
+- **No sign-up to play.** After a wave, claim your score (name + email) on the result
+  screen to land on the board and enter for the prize; later plays auto-add, no re-clicking.
 - **Attract mode** — a continuous ambient wave + "tap to play" is the default idle state.
 - **Sound** (Web Audio, mute top-right) and a branded **share card** (PNG).
 

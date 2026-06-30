@@ -15,24 +15,20 @@
     <section id="title-screen" class="screen active">
       <div class="eyebrow">How much code are agents really writing?</div>
       <h1 class="display">AGENT<br>TIDAL WAVE</h1>
-      <p class="sub">Guess the number. A wave of agent-written code crashes into the servers —
+      <p class="sub">Guess the number. A wave of agent-written code crashes into the servers,
         and the closer your guess, the harder it hits.</p>
 
-      <!-- Not signed in: joining is the gate to play -->
+      <!-- Not signed in: no gate. Play first, claim the score after. -->
       <div id="title-join">
-        <div class="join-row">
-          <input class="name-field" id="name-input" maxlength="24" placeholder="Your name" />
-          <input class="name-field" id="email-input" type="email" maxlength="80" placeholder="you@email.com" />
-        </div>
-        <button id="start-btn">Join &amp; play</button>
-        <p class="consent" id="join-msg">Join with your email to play &amp; be eligible for prizes — we’ll only use it to contact winners.</p>
+        <button id="start-btn">Play</button>
+        <p class="consent" id="join-msg">No sign-up. Just play.</p>
       </div>
 
       <!-- Already signed in: straight to play, plus the data explorer -->
       <div id="title-welcome">
         <p class="consent" id="welcome-status">Welcome back</p>
         <div class="btn-row">
-          <button id="play-btn">Start</button>
+          <button id="play-btn">Play</button>
           <button id="title-explore-btn" class="ghost">Explore the data</button>
         </div>
         <button class="link-btn" id="title-signout-btn">Sign out (different player)</button>
@@ -70,6 +66,17 @@
       </div>
       <canvas id="spark" width="760" height="150"></canvas>
       <p class="caveat" id="r-caveat"></p>
+      <!-- Brand-new player: a quiet claim, framed as putting your run on the board.
+           Already claimed: the standing chip + "different player" reset. -->
+      <div class="claim" id="claim-block">
+        <div class="claim-line">Claim your spot on the board.</div>
+        <div class="claim-row">
+          <input class="name-field" id="name-input" maxlength="24" placeholder="Name for the board" />
+          <input class="name-field" id="email-input" type="email" maxlength="80" placeholder="Email" />
+          <button id="claim-btn">Claim</button>
+        </div>
+        <p class="consent" id="claim-msg">Email is only how we reach prize winners.</p>
+      </div>
       <div class="active-chip" id="active-chip">
         <span id="active-chip-status">✓ On the board</span>
         <button class="link-btn" id="signout-btn">Sign out (different player)</button>
@@ -97,7 +104,7 @@
         <div class="explore-head">
           <div>
             <div class="eyebrow">Explore the data</div>
-            <div class="explore-sub">Agent-signed public commits per month — real data, lower bound.</div>
+            <div class="explore-sub">Agent-signed public commits per month. Real data, lower bound.</div>
           </div>
           <div class="explore-scale">
             <button type="button" data-scale="linear" class="active">Linear</button>

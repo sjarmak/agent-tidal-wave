@@ -154,24 +154,13 @@
     }
     $('r-caveat').innerHTML =
       `You were <b style="color:var(--sg-cream)">${off}</b>. ${q.reveal} ` +
-      `Lower bound — only commits explicitly signed “Co-authored-by: Claude.” ` +
+      `Lower bound: only commits explicitly signed “Co-authored-by: Claude.” ` +
       `Source: ${GAME_DATA.source}.`;
-    // Auto-add for returning players: they joined once, so each subsequent play climbs.
-    if (activePlayer && !savedThisRound) {
-      const entry = { id: Date.now(), email: activePlayer.email, name: activePlayer.name, damage };
-      const events = loadEvents();
-      events.push(entry); saveEvents(events);
-      submitLead(entry);
-      highlightEmail = activePlayer.email; highlightId = entry.id; savedThisRound = true;
-      lastServerStanding = null;
-      postScore(entry).then((resp) => {  // climb the shared board automatically
-        if (resp && resp.ok) lastServerStanding = resp;
-        updateActiveChip(); renderLeaderboard();
-      });
-      Sound.ding();
-    }
+    // Returning players (already claimed once) climb automatically; brand-new players
+    // are offered the claim on this screen instead (see renderResultIdentity).
+    if (activePlayer) saveResult();
     show('result-screen');
-    requestAnimationFrame(() => { drawSpark(); renderLeaderboard(); renderJoinState(); updateActiveChip(); });
+    requestAnimationFrame(() => { drawSpark(); renderLeaderboard(); renderResultIdentity(); updateActiveChip(); });
   }
 
   // ---- reveal sparkline (real series, linear y for hockey-stick drama) ----
@@ -245,6 +234,25 @@
     postLead(payload).then(flushPending).catch(() => queuePending(payload));
   }
 
+  // Persist the current round under the signed-in identity: local events (the board's
+  // source of truth) + optional durable lead POST + the shared Postgres board. Runs at
+  // most once per round. Returning players trigger it automatically in reveal(); a new
+  // player triggers it by claiming.
+  function saveResult() {
+    if (!activePlayer || savedThisRound || !lastResult) return;
+    const entry = { id: Date.now(), email: activePlayer.email, name: activePlayer.name, damage: lastResult.damage };
+    const events = loadEvents();
+    events.push(entry); saveEvents(events);
+    submitLead(entry);
+    highlightEmail = activePlayer.email; highlightId = entry.id; savedThisRound = true;
+    lastServerStanding = null;
+    postScore(entry).then((resp) => {       // climb the shared board
+      if (resp && resp.ok) lastServerStanding = resp;
+      updateActiveChip(); renderLeaderboard();
+    });
+    Sound.ding();
+  }
+
   const hourBucket = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`; };
   const fmtHour = (x) => `${x % 12 || 12}${x < 12 ? 'am' : 'pm'}`;
   const hourLabel = (ts) => { const h = new Date(ts).getHours(); return `${fmtHour(h)}–${fmtHour((h + 1) % 24)}`; };
@@ -311,7 +319,7 @@
       rows = board.rows.length
         ? board.rows.map((r, i) => lbRow(i, `${safe(r.name)} <span class="plays">×${r.plays}</span>`,
             r.score + ' pts', isYouName(r.name))).join('')
-        : lbEmpty('No players yet — join to start the board →');
+        : lbEmpty('No players yet. Be the first on the board →');
     }
     paint(lbTabs() + head + rows);
   }
@@ -335,7 +343,7 @@
       rows = lb.length
         ? lb.map((p, i) => lbRow(i, `${safe(p.name)} <span class="plays">×${p.plays}</span>`,
             p.total + ' pts', p.email === highlightEmail)).join('')
-        : lbEmpty('No players yet — join to start the board →');
+        : lbEmpty('No players yet. Be the first on the board →');
     }
     serverHourResetAt = 0;
     paint(lbTabs() + head + rows);
@@ -367,12 +375,27 @@
   }, 1000);
   setInterval(renderLeaderboard, 12000); // keep the shared board fresh as others play
 
-  // The result screen always belongs to a signed-in player now — show their chip and
-  // the data explorer (joining is required before any round can be played).
-  function renderJoinState() {
-    $('active-chip').style.display = 'flex';
+  // Result screen identity: a claimed player sees their standing chip; a brand-new
+  // player sees the quiet claim block. The data explorer is open to everyone here.
+  function renderResultIdentity() {
+    const signed = !!activePlayer;
+    $('claim-block').style.display = signed ? 'none' : 'flex';
+    $('active-chip').style.display = signed ? 'flex' : 'none';
+    if (!signed) {
+      const m = $('claim-msg'); m.className = 'consent';
+      m.textContent = 'Email is only how we reach prize winners.';
+    }
     $('explore-btn').style.display = '';
     $('spark').classList.add('explorable');
+  }
+
+  // New player puts the run they just finished on the board: validate + sign in, save
+  // that result under the new identity, then flip the claim block to the standing chip.
+  function claimResult() {
+    if (!attemptJoin()) return;
+    saveResult();
+    renderResultIdentity();
+    updateActiveChip();
   }
   function updateActiveChip() {
     if (!activePlayer) return;
@@ -411,9 +434,9 @@
   function attemptJoin() {
     const email = ($('email-input').value || '').trim().toLowerCase();
     const name = ($('name-input').value || '').trim() || 'Anonymous';
-    const msg = $('join-msg');
+    const msg = $('claim-msg');
     if (!EMAIL_RE.test(email)) {
-      msg.textContent = 'Please enter a valid email to play & be eligible for prizes.';
+      msg.textContent = 'Enter a valid email to claim your spot and the prize.';
       msg.className = 'consent err'; return false;
     }
     signIn(email, name);
@@ -427,11 +450,8 @@
     if (signedIn) {
       const me = overallStandings(loadEvents()).find((p) => p.email === activePlayer.email);
       $('welcome-status').textContent = me
-        ? `Welcome back, ${activePlayer.name} — ${me.total} pts over ${me.plays} play${me.plays > 1 ? 's' : ''}.`
+        ? `Welcome back, ${activePlayer.name}. ${me.total} pts over ${me.plays} play${me.plays > 1 ? 's' : ''}.`
         : `Signed in as ${activePlayer.name}.`;
-    } else {
-      const jm = $('join-msg'); jm.className = 'consent';
-      jm.textContent = 'Join with your email to play & be eligible for prizes — we’ll only use it to contact winners.';
     }
   }
 
@@ -536,7 +556,7 @@
   }
   $('explore-btn').addEventListener('click', openExplore);
   $('explore-close').addEventListener('click', () => $('explore-overlay').classList.remove('active'));
-  $('spark').addEventListener('click', () => { if (activePlayer) openExplore(); });
+  $('spark').addEventListener('click', () => openExplore());
   $('explore-canvas').addEventListener('pointermove', exploreHover);
   $('explore-canvas').addEventListener('pointerdown', exploreHover);
   $('explore-canvas').addEventListener('pointerleave', () => { explore.hi = -1; drawExplore(); exploreReadout(); });
@@ -557,7 +577,8 @@
     $('name-input').value = ''; $('email-input').value = '';
     renderTitle(); renderLeaderboard(); show('title-screen');
   }
-  $('start-btn').addEventListener('click', () => { if (attemptJoin()) setupGuess(); });
+  $('start-btn').addEventListener('click', setupGuess);   // no gate: play first, claim after
+  $('claim-btn').addEventListener('click', claimResult);
   $('play-btn').addEventListener('click', setupGuess);
   $('title-explore-btn').addEventListener('click', openExplore);
   $('title-signout-btn').addEventListener('click', signOut);
