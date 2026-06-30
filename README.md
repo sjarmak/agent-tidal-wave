@@ -45,7 +45,7 @@ Postgres is deleted after 30 days — fine for a conference; bump to paid for lo
 |---|---|
 | `GET /api/health` | Health + DB ping (Render health check) |
 | `POST /api/score` | `{email, name, damage}` → records a play, returns `{rank, total}` |
-| `GET /api/leaderboard?view=overall\|hour` | Standings — **name + score only** |
+| `GET /api/leaderboard?view=overall\|hour` | Ranked standings; the booth renders **rank + name only** (scores used for ordering, not shown) |
 
 ## Configure (`data.js` → `GAME_DATA.config`)
 
@@ -58,7 +58,9 @@ Postgres is deleted after 30 days — fine for a conference; bump to paid for lo
 ## Gameplay
 
 - **Rotating questions** — each play draws a different real-data question. Spoiler-proof.
-- **Damage = proximity** — log-scale closeness; a perfect hit launches the servers.
+- **Damage = proximity** — log-scale closeness; a perfect hit launches the servers. The
+  correct number is never shown after a guess (only a qualitative "how close"), so the
+  booth stays unspoiled for the next player.
 - **Leaderboards** — *This hour* (resets each clock hour, countdown + prize) and *Overall*
   (cumulative; replay to climb), shared across all players via Postgres.
 - **No sign-up to play.** After a wave, claim your score (name + email) on the result
@@ -69,7 +71,8 @@ Postgres is deleted after 30 days — fine for a conference; bump to paid for lo
 ## Leads & privacy
 
 - Email is the leaderboard identity + prize-eligibility key. It is stored **server-side
-  only and never returned by the API** — the board exposes name + score.
+  only and never returned by the API** — the board exposes name + rank only (scores are
+  withheld at the booth; the API still returns them server-side for ordering).
 - Operator export: `awExport()` in the browser console dumps the *local* device's CSV;
   for the authoritative list query the `scores` table directly.
 

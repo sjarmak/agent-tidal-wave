@@ -23,10 +23,15 @@
     if (q.format === 'pct') return v.toFixed(2) + '%';
     return compact(v);
   }
-  function actualDisplay(q) {
-    if (q.type === 'date') return monthLabel(q.months[q.answerIndex]);
-    if (q.format === 'compact') return q.answer.toLocaleString('en-US'); // exact = the payoff
-    return formatValue(q.answer, q);
+  // Qualitative closeness shown in place of the real number. The answer itself is never
+  // surfaced post-guess so the booth stays spoiler-proof for the next player.
+  function closenessWord(damage) {
+    if (damage >= 100) return 'spot on';
+    if (damage >= 85) return 'so close';
+    if (damage >= 60) return 'close';
+    if (damage >= 30) return 'in range';
+    if (damage > 0) return 'way off';
+    return 'off the chart';
   }
 
   // ---- slider mapping ----
@@ -138,23 +143,13 @@
     tierEl.textContent = tier.label;
     tierEl.className = 'result-tier tier-' + tier.key;
     const guessText = q.type === 'date' ? monthLabel(q.months[guess.index]) : formatValue(guess.value, q);
-    const actualText = actualDisplay(q);
-    lastResult.guessText = guessText; lastResult.actualText = actualText; lastResult.tierLabel = tier.label;
+    lastResult.guessText = guessText; lastResult.tierLabel = tier.label;
     $('r-damage').textContent = damage + '%';
     $('r-guess').textContent = guessText;
-    $('r-real').textContent = actualText;
 
-    let off;
-    if (q.type === 'date') {
-      off = lastResult.monthsApart === 0 ? 'spot on' :
-        `${lastResult.monthsApart} month${lastResult.monthsApart > 1 ? 's' : ''} off`;
-    } else {
-      off = lastResult.overUnder === 'exact' ? 'spot on' :
-        `${lastResult.offByX.toFixed(lastResult.offByX < 10 ? 1 : 0)}× ${lastResult.overUnder}`;
-    }
     $('r-caveat').innerHTML =
-      `You were <b style="color:var(--sg-cream)">${off}</b>. ${q.reveal} ` +
-      `Lower bound: only commits explicitly signed “Co-authored-by: Claude.” ` +
+      `You were <b style="color:var(--sg-cream)">${closenessWord(damage)}</b>. ` +
+      `These are public commits explicitly signed “Co-authored-by: Claude” — a lower bound. ` +
       `Source: ${GAME_DATA.source}.`;
     // Returning players (already claimed once) climb automatically; brand-new players
     // are offered the claim on this screen instead (see renderResultIdentity).
@@ -262,8 +257,10 @@
     return `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
   }
 
-  const lbRow = (i, nm, score, you) =>
-    `<div class="row${you ? ' you' : ''}"><span class="rank">${i + 1}</span><span class="nm">${nm}</span><b>${score}</b></div>`;
+  // Scores are intentionally not shown on the board — only rank + name. Standings still
+  // sort by score server/client-side; the number itself is withheld at the booth.
+  const lbRow = (i, nm, you) =>
+    `<div class="row${you ? ' you' : ''}"><span class="rank">${i + 1}</span><span class="nm">${nm}</span></div>`;
   const lbEmpty = (t) => `<div class="lb-empty-row">${t}</div>`;
 
   function overallStandings(events) {
@@ -307,18 +304,18 @@
     let head, rows;
     if (board.view === 'hour') {
       serverHourResetAt = Date.now() + (board.resetIn || 0) * 1000;
-      head = `<div class="lb-head"><span>This hour · ${board.hourLabel || ''}</span><span>best wave</span></div>` +
+      head = `<div class="lb-head"><span>This hour · ${board.hourLabel || ''}</span></div>` +
         `<div class="lb-prize">${CONFIG.prize} · resets in <span data-countdown>${fmtReset(board.resetIn || 0)}</span></div>`;
       rows = board.rows.length
-        ? board.rows.map((r, i) => lbRow(i, safe(r.name), r.score + '%', isYouName(r.name))).join('')
+        ? board.rows.map((r, i) => lbRow(i, safe(r.name), isYouName(r.name))).join('')
         : lbEmpty('Be the first wave this hour →');
     } else {
       serverHourResetAt = 0;
-      head = '<div class="lb-head"><span>Overall · top players</span><span>score</span></div>' +
+      head = '<div class="lb-head"><span>Overall · top players</span></div>' +
         `<div class="lb-prize">${CONFIG.prize} · play more to climb</div>`;
       rows = board.rows.length
         ? board.rows.map((r, i) => lbRow(i, `${safe(r.name)} <span class="plays">×${r.plays}</span>`,
-            r.score + ' pts', isYouName(r.name))).join('')
+            isYouName(r.name))).join('')
         : lbEmpty('No players yet. Be the first on the board →');
     }
     paint(lbTabs() + head + rows);
@@ -331,18 +328,18 @@
     if (lbView === 'hour') {
       const lb = events.filter((e) => hourBucket(e.id) === shownBucket)
         .sort((a, b) => b.damage - a.damage).slice(0, 8);
-      head = `<div class="lb-head"><span>This hour · ${hourLabel(now)}</span><span>best wave</span></div>` +
+      head = `<div class="lb-head"><span>This hour · ${hourLabel(now)}</span></div>` +
         `<div class="lb-prize">${CONFIG.prize} · resets in <span data-countdown>${countdownText()}</span></div>`;
       rows = lb.length
-        ? lb.map((e, i) => lbRow(i, safe(e.name), e.damage + '%', e.id === highlightId)).join('')
+        ? lb.map((e, i) => lbRow(i, safe(e.name), e.id === highlightId)).join('')
         : lbEmpty('Be the first wave this hour →');
     } else {
       const lb = overallStandings(events).slice(0, 8);
-      head = '<div class="lb-head"><span>Overall · top players</span><span>score</span></div>' +
+      head = '<div class="lb-head"><span>Overall · top players</span></div>' +
         `<div class="lb-prize">${CONFIG.prize} · play more to climb</div>`;
       rows = lb.length
         ? lb.map((p, i) => lbRow(i, `${safe(p.name)} <span class="plays">×${p.plays}</span>`,
-            p.total + ' pts', p.email === highlightEmail)).join('')
+            p.email === highlightEmail)).join('')
         : lbEmpty('No players yet. Be the first on the board →');
     }
     serverHourResetAt = 0;
@@ -376,7 +373,7 @@
   setInterval(renderLeaderboard, 12000); // keep the shared board fresh as others play
 
   // Result screen identity: a claimed player sees their standing chip; a brand-new
-  // player sees the quiet claim block. The data explorer is open to everyone here.
+  // player sees the quiet claim block.
   function renderResultIdentity() {
     const signed = !!activePlayer;
     $('claim-block').style.display = signed ? 'none' : 'flex';
@@ -385,8 +382,6 @@
       const m = $('claim-msg'); m.className = 'consent';
       m.textContent = 'Email is only how we reach prize winners.';
     }
-    $('explore-btn').style.display = '';
-    $('spark').classList.add('explorable');
   }
 
   // New player puts the run they just finished on the board: validate + sign in, save
@@ -403,14 +398,14 @@
     const dmg = lastResult && typeof lastResult.damage === 'number' ? lastResult.damage : null;
     const added = (dmg !== null && savedThisRound) ? `✓ +${dmg}% added · ` : '';
     if (lastServerStanding && lastServerStanding.rank) { // authoritative shared rank
-      status.textContent = `${added}You’re #${lastServerStanding.rank} overall, ${activePlayer.name} (${lastServerStanding.total} pts)`;
+      status.textContent = `${added}You’re #${lastServerStanding.rank} overall, ${activePlayer.name}`;
       return;
     }
     const standings = overallStandings(loadEvents());          // offline fallback
     const me = standings.find((p) => p.email === activePlayer.email);
     const rank = standings.findIndex((p) => p.email === activePlayer.email) + 1;
     status.textContent = me
-      ? `${added}You’re #${rank} overall, ${activePlayer.name} (×${me.plays} plays, ${me.total} pts)`
+      ? `${added}You’re #${rank} overall, ${activePlayer.name}`
       : `Playing as ${activePlayer.name}`;
   }
 
@@ -450,7 +445,7 @@
     if (signedIn) {
       const me = overallStandings(loadEvents()).find((p) => p.email === activePlayer.email);
       $('welcome-status').textContent = me
-        ? `Welcome back, ${activePlayer.name}. ${me.total} pts over ${me.plays} play${me.plays > 1 ? 's' : ''}.`
+        ? `Welcome back, ${activePlayer.name}. ${me.plays} play${me.plays > 1 ? 's' : ''} so far.`
         : `Signed in as ${activePlayer.name}.`;
     }
   }
@@ -489,7 +484,7 @@
     ctx.fillStyle = '#f5eddd'; ctx.font = "500 36px 'PolySans Median', sans-serif";
     const afterPrompt = wrapText(ctx, r.q.prompt, pad, 700, W - pad * 2, 48);
     ctx.fillStyle = '#a8a29a'; ctx.font = "400 30px 'PolySans Neutral Mono', monospace";
-    ctx.fillText(`You guessed ${r.guessText}    ·    Actual ${r.actualText}`, pad, afterPrompt + 70);
+    ctx.fillText(`You guessed ${r.guessText}`, pad, afterPrompt + 70);
     drawCardSpark(ctx, pad, 980, W - pad * 2, 180);
     ctx.fillStyle = '#6e6e6e'; ctx.font = "400 24px 'PolySans Neutral Mono', monospace";
     ctx.fillText('Real GitHub data · lower bound · agent-signed commits', pad, 1230);
@@ -500,73 +495,6 @@
   $('share-btn').addEventListener('click', () => { buildShareCard(); $('share-overlay').classList.add('active'); });
   $('share-close').addEventListener('click', () => { $('share-overlay').classList.remove('active'); });
 
-  // ---- interactive data explorer: tap into the real series month by month.
-  // Linear shows the hockey stick; log reveals the early-growth structure.
-  const explore = { mode: 'linear', hi: -1 };
-  function exploreGeom(c) {
-    const W = c.clientWidth, H = c.clientHeight, padL = 64, padR = 16, padT = 18, padB = 26;
-    const stride = (W - padL - padR) / GAME_DATA.series.length;
-    return { W, H, padL, padT, padB, stride, plotH: H - padT - padB };
-  }
-  function drawExplore() {
-    const c = $('explore-canvas'); if (!c.clientWidth) return;
-    const ctx = c.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const { W, H, padL, padT, padB, stride, plotH } = exploreGeom(c);
-    c.width = W * dpr; c.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    const s = GAME_DATA.series, max = Math.max(...s.map((d) => d.v)), log = explore.mode === 'log';
-    const lmin = Math.log10(80), lmax = Math.log10(max);
-    const frac = (v) => log ? (Math.log10(v) - lmin) / (lmax - lmin) : v / max;
-    ctx.font = '11px ui-monospace, Menlo, monospace';
-    const ticks = log ? [100, 1e3, 1e4, 1e5, 1e6, 1e7] : [0, max * 0.25, max * 0.5, max * 0.75, max];
-    ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
-    ticks.forEach((t) => {
-      if (t > max) return;
-      const y = padT + plotH * (1 - frac(Math.max(t, 1)));
-      ctx.strokeStyle = '#1a1a1f'; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - 16, y); ctx.stroke();
-      ctx.fillStyle = '#6e6e6e'; ctx.fillText(compact(t), padL - 8, y);
-    });
-    s.forEach((d, i) => {
-      const bh = Math.max(1, frac(d.v) * plotH), x = padL + i * stride, y = padT + plotH - bh, hi = i === explore.hi;
-      ctx.fillStyle = d.partial ? '#5a2a24' : '#ff5543';
-      ctx.globalAlpha = hi ? 1 : (d.partial ? 0.9 : 0.42 + 0.5 * frac(d.v));
-      ctx.fillRect(x + 1, y, Math.max(1, stride - 3), bh);
-      if (hi) { ctx.globalAlpha = 1; ctx.strokeStyle = '#f5eddd';
-        ctx.strokeRect(x + 0.5, y - 0.5, Math.max(1, stride - 3) + 1, bh + 1); }
-    });
-    ctx.globalAlpha = 1; ctx.fillStyle = '#6e6e6e'; ctx.textBaseline = 'alphabetic';
-    ctx.textAlign = 'left'; ctx.fillText(monthLabel(s[0].m), padL, H - 7);
-    ctx.textAlign = 'right'; ctx.fillText(monthLabel(s[s.length - 1].m), W - 16, H - 7);
-  }
-  function exploreReadout() {
-    const s = GAME_DATA.series, el = $('explore-readout');
-    if (explore.hi < 0 || explore.hi >= s.length) { el.textContent = 'Hover or tap a bar to see that month’s exact count.'; return; }
-    const d = s[explore.hi];
-    el.textContent = `${monthLabel(d.m)} — ${d.v.toLocaleString('en-US')} agent-signed commits${d.partial ? ' (month still in progress)' : ''}`;
-  }
-  function exploreHover(ev) {
-    const c = $('explore-canvas'), r = c.getBoundingClientRect(), { padL, stride } = exploreGeom(c);
-    const i = Math.floor((ev.clientX - r.left - padL) / stride);
-    explore.hi = (i >= 0 && i < GAME_DATA.series.length) ? i : -1;
-    drawExplore(); exploreReadout();
-  }
-  function openExplore() {
-    explore.hi = -1; $('explore-overlay').classList.add('active');
-    requestAnimationFrame(() => { drawExplore(); exploreReadout(); });
-  }
-  $('explore-btn').addEventListener('click', openExplore);
-  $('explore-close').addEventListener('click', () => $('explore-overlay').classList.remove('active'));
-  $('spark').addEventListener('click', () => openExplore());
-  $('explore-canvas').addEventListener('pointermove', exploreHover);
-  $('explore-canvas').addEventListener('pointerdown', exploreHover);
-  $('explore-canvas').addEventListener('pointerleave', () => { explore.hi = -1; drawExplore(); exploreReadout(); });
-  document.querySelectorAll('.explore-scale button').forEach((b) =>
-    b.addEventListener('click', () => {
-      explore.mode = b.getAttribute('data-scale');
-      document.querySelectorAll('.explore-scale button').forEach((x) => x.classList.toggle('active', x === b));
-      drawExplore();
-    }));
-  window.addEventListener('resize', () => { if ($('explore-overlay').classList.contains('active')) drawExplore(); });
 
   // ---- wiring ----
   // Joining is required to play; "Start" / "Play again" keep the signed-in player.
@@ -580,7 +508,6 @@
   $('start-btn').addEventListener('click', setupGuess);   // no gate: play first, claim after
   $('claim-btn').addEventListener('click', claimResult);
   $('play-btn').addEventListener('click', setupGuess);
-  $('title-explore-btn').addEventListener('click', openExplore);
   $('title-signout-btn').addEventListener('click', signOut);
   $('signout-btn').addEventListener('click', signOut);
   $('unleash-btn').addEventListener('click', runWave);

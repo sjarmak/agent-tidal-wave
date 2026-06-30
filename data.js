@@ -272,5 +272,27 @@ const GAME_DATA = Object.freeze({
       answerIndex: 3, // 2025-09 (602K → 554K, the steepest dip in the series)
       reveal: 'September 2025: the steepest dip in the series (602K → 554K).',
     },
+
+    // ---- additional rounds ----
+    {
+      id: 'mag_nov2025', type: 'number',
+      prompt: 'In November 2025, how many public commits were AI-agent co-authored?',
+      answer: 1136376, min: 1e5, max: 2e7, format: 'compact',
+      hint: 'The month it first cleared a million.',
+      reveal: 'November 2025: 1.14M, the first month past a million.',
+    },
+    {
+      id: 'dec_jump', type: 'number',
+      prompt: 'How many more agent-signed commits did December 2025 have than November 2025?',
+      answer: 405471, min: 1e4, max: 1e7, format: 'compact',
+      reveal: '+405K month over month (1.14M → 1.54M).',
+    },
+    {
+      id: 'first_2m', type: 'date',
+      prompt: 'Which month did agent-signed commits first top 2,000,000 per month?',
+      months: ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03'],
+      answerIndex: 2, // 2026-01 (Dec was 1.54M; Jan was 3.29M)
+      reveal: 'January 2026: December fell short at 1.54M.',
+    },
   ]),
 });
