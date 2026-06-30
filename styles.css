@@ -33,7 +33,11 @@ body {
   position: absolute; inset: 0;
   display: none;
   flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: center;
+  justify-content: center;       /* fallback */
+  justify-content: safe center;  /* center when it fits, scroll from the top when it doesn't */
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 6vh 6vw;
   text-align: center;
   gap: 28px;
